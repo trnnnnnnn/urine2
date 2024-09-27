@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Check - Urine</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            margin: 0;
+            padding-top: 20px;
+        }
+        #start-button {
+            font-size: 24px;
+            padding: 10px 20px;
+            margin-top: 20px;
+        }
+        #webcam-container {
+            display: none;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        #label-container {
+            font-size: 20px;
+            text-align: center;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div style="font-size: 24px; font-weight: bold; text-decoration: underline; text-align: center;">
+        Health Check - Urine
+    </div>
+
+    <button id="start-button" type="button" onclick="start()">Start</button>
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script type="text/javascript">
+        const URL = "https://teachablemachine.withgoogle.com/models/OmOjXrXVe/";
+        let model, webcam, labelContainer, maxPredictions;
+
+        async function start() {
+            document.getElementById("start-button").style.display = "none";
+            document.getElementById("webcam-container").style.display = "flex";
+
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            try {
+                model = await tmImage.load(modelURL, metadataURL);
+                console.log("โหลดโมเดลสำเร็จ");
+                maxPredictions = model.getTotalClasses();
+
+                const flip = true; // พลิกภาพจากกล้องเว็บแคม
+                webcam = new tmImage.Webcam(200, 200, flip);
+                await webcam.setup();
+                console.log("เว็บแคมถูกตั้งค่าแล้ว");
+                await webcam.play();
+
+                document.getElementById("webcam-container").appendChild(webcam.canvas);
+                labelContainer = document.getElementById("label-container");
+                if (!labelContainer) {
+                    console.error("ไม่พบ labelContainer ใน DOM");
+                }
+                window.requestAnimationFrame(loop);
+            } catch (error) {
+                console.error("เกิดข้อผิดพลาดในการโหลดโมเดลหรือเว็บแคม:", error);
+                alert("เกิดข้อผิดพลาดในการโหลดโมเดลหรือเว็บแคม กรุณาลองใหม่");
+            }
+        }
+
+        async function predict() {
+            console.log("เริ่มทำการทำนาย...");
+            try {
+                const prediction = await model.predict(webcam.canvas);
+                console.log("ทำนายเสร็จสิ้น:", prediction);
+
+                let highestPrediction = prediction[0];
+                for (let i = 1; i < maxPredictions; i++) {
+                    if (prediction[i].probability > highestPrediction.probability) {
+                        highestPrediction = prediction[i];
+                    }
+                }
+
+                if (highestPrediction && highestPrediction.className) {
+                    labelContainer.innerHTML = highestPrediction.className + ": " + highestPrediction.probability.toFixed(2);
+
+                    let additionalMessage = "";
+
+                    if (highestPrediction.className === "Clear") {
+                        additionalMessage = "--> ดื่มน้ำปริมาณที่มากเกินต่อวัน ทำให้ระดับเกลือแร่ต่ำเกินไป";
+                    } else if (highestPrediction.className === "Light yellow") {
+                        additionalMessage = "--> ระดับน้ำในร่างกายปกติ";
+                    } else if (highestPrediction.className === "Medium yellow") {
+                        additionalMessage = "--> เกิดจากการกินวิตามินและอาหารเสริม";
+                    } else if (highestPrediction.className === "Dark yellow") {
+                        additionalMessage = "--> ควรดื่มน้ำให้มากขึ้น";
+                    } else if (highestPrediction.className === "Orange") {
+                        additionalMessage = "--> ร่างกายขาดน้ำ มีปัญหากับถุงน้ำดีหรือตับ";
+                    } else if (highestPrediction.className === "Dark orange") {
+                        additionalMessage = "--> ขาดน้ำอย่างรุนแรง เป็นดีซ่าน มีภาวะกล้ามเนื้อลายสสาย";
+                    } else if (highestPrediction.className === "White") {
+                        additionalMessage = "--> ติดเชื้อทางเดินปัสสาวะ";
+                    }
+
+                    labelContainer.innerHTML += "<br>" + additionalMessage;
+                } else {
+                    console.error("ไม่มีการทำนายที่ถูกต้อง");
+                }
+            } catch (error) {
+                console.error("เกิดข้อผิดพลาดในการทำนาย:", error);
+            }
+        }
+
+        function loop() {
+            webcam.update();
+            predict();
+            window.requestAnimationFrame(loop);
+        }
+    </script>
+</body>
+</html>
