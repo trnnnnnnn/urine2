@@ -58,7 +58,7 @@
                 console.log("โหลดโมเดลสำเร็จ");
                 maxPredictions = model.getTotalClasses();
 
-                const flip = true; // พลิกภาพจากกล้องเว็บแคม
+                const flip = False; // พลิกภาพจากกล้องเว็บแคม
                 webcam = new tmImage.Webcam(200, 200, flip);
                 await webcam.setup();
                 console.log("เว็บแคมถูกตั้งค่าแล้ว");
